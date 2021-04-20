@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -24,17 +23,12 @@ const (
 	headerLocation          = "Location"
 )
 
-// returns true if the LRO response contains a valid HTTP status code
-func lroStatusCodeValid(resp *Response) bool {
-	return resp.HasStatusCode(http.StatusOK, http.StatusAccepted, http.StatusCreated, http.StatusNoContent)
-}
-
 // ErrorUnmarshaller is the func to invoke when the endpoint returns an error response that requires unmarshalling.
 type ErrorUnmarshaller func(*Response) error
 
-// NewLROPoller creates a poller based on the provided initial response.
+// NewLROPoller creates an LROPoller based on the provided initial response.
 // NOTE: this is only meant for internal use in generated code.
-func NewLROPoller(resp *Response, pl Pipeline, eu ErrorUnmarshaller) (*LROPoller, error) {
+func NewLROPoller(pollerType string, resp *Response, pl Pipeline, eu ErrorUnmarshaller) (*LROPoller, error) {
 	// this is a back-stop in case the swagger is incorrect (i.e. missing one or more status codes for success).
 	// ideally the codegen should return an error if the initial response failed and not even create a poller.
 	if !lroStatusCodeValid(resp) {
@@ -45,7 +39,7 @@ func NewLROPoller(resp *Response, pl Pipeline, eu ErrorUnmarshaller) (*LROPoller
 	// in the case of both headers, always prefer the operation-location header
 	if opLoc != "" {
 		return &LROPoller{
-			lro:  &opPoller{req: resp.Request, pollURL: opLoc, locURL: loc},
+			lro:  newOpPoller(pollerType, opLoc, loc, resp),
 			pl:   pl,
 			eu:   eu,
 			resp: resp,
@@ -53,13 +47,48 @@ func NewLROPoller(resp *Response, pl Pipeline, eu ErrorUnmarshaller) (*LROPoller
 	}
 	if loc != "" {
 		return &LROPoller{
-			lro:  &locPoller{pollURL: loc, status: resp.StatusCode},
+			lro:  newLocPoller(pollerType, loc, resp.StatusCode),
 			pl:   pl,
 			eu:   eu,
 			resp: resp,
 		}, nil
 	}
 	return &LROPoller{lro: &nopPoller{}}, nil
+}
+
+// NewLROPollerFromResumeToken creates an LROPoller from a resume token string.
+// NOTE: this is only meant for internal use in generated code.
+func NewLROPollerFromResumeToken(pollerType string, token string, pl Pipeline, eu ErrorUnmarshaller) (*LROPoller, error) {
+	// unmarshal into JSON object to determine the poller type
+	obj := map[string]interface{}{}
+	err := json.Unmarshal([]byte(token), &obj)
+	if err != nil {
+		return nil, err
+	}
+	tt := obj["type"].(string)
+	// the type is encoded as "pollerType;lroPoller"
+	sem := strings.LastIndex(tt, ";")
+	if sem < 0 {
+		return nil, fmt.Errorf("invalid poller type %s", tt)
+	}
+	// ensure poller types match
+	if received := tt[:sem]; received != pollerType {
+		return nil, fmt.Errorf("cannot resume from this poller token.  expected %s, received %s", pollerType, received)
+	}
+	// now rehydrate the poller based on the encoded poller type
+	var lro lroPoller
+	switch pt := tt[sem+1:]; pt {
+	case "opPoller":
+		lro = &opPoller{}
+	case "locPoller":
+		lro = &locPoller{}
+	default:
+		return nil, fmt.Errorf("unhandled lroPoller type %s", pt)
+	}
+	if err = json.Unmarshal([]byte(token), lro); err != nil {
+		return nil, err
+	}
+	return &LROPoller{lro: lro, pl: pl, eu: eu}, nil
 }
 
 // LROPoller defines the methods that will be called internally in the generated code for long-running operations.
@@ -89,7 +118,7 @@ func (l *LROPoller) Poll(ctx context.Context) (*http.Response, error) {
 		}
 		return nil, l.err
 	}
-	req, err := NewRequest(ctx, http.MethodGet, l.lro.PollURL())
+	req, err := NewRequest(ctx, http.MethodGet, l.lro.URL())
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +144,11 @@ func (l *LROPoller) ResumeToken() (string, error) {
 	if l.Done() {
 		return "", errors.New("cannot create a ResumeToken from a poller in a terminal state")
 	}
-	panic("NYI")
+	b, err := json.Marshal(l.lro)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 // FinalResponse will perform a final GET if request and return the final http response for the polling
@@ -142,8 +175,7 @@ func (l *LROPoller) FinalResponse(ctx context.Context, respType interface{}) (*h
 			return nil, err
 		}
 		if !lroStatusCodeValid(resp) {
-			// TODO: unmarshall?
-			return nil, errors.New("TODO")
+			return nil, l.eu(resp)
 		}
 		l.resp = resp
 	}
@@ -159,7 +191,7 @@ func (l *LROPoller) FinalResponse(ctx context.Context, respType interface{}) (*h
 }
 
 // PollUntilDone will handle the entire span of the polling operation until a terminal state is reached,
-// then return the final http response for the polling operation and unmarshal the content of the payload
+// then return the final HTTP response for the polling operation and unmarshal the content of the payload
 // into the respType interface that is provided.
 func (l *LROPoller) PollUntilDone(ctx context.Context, freq time.Duration, respType interface{}) (*http.Response, error) {
 	logPollUntilDoneExit := func(v interface{}) {
@@ -184,8 +216,11 @@ func (l *LROPoller) PollUntilDone(ctx context.Context, freq time.Duration, respT
 			return nil, err
 		}
 		if l.Done() {
-			logPollUntilDoneExit(l.lro.Status())
-			break
+			logPollUntilDoneExit(l.lro.State())
+			if !l.lro.Succeeded() {
+				return nil, l.eu(&Response{resp})
+			}
+			return l.FinalResponse(ctx, respType)
 		}
 		d := freq
 		if retryAfter := RetryAfter(resp); retryAfter > 0 {
@@ -199,8 +234,6 @@ func (l *LROPoller) PollUntilDone(ctx context.Context, freq time.Duration, respT
 			return nil, err
 		}
 	}
-	// TODO: distinguish between success/failure
-	return l.FinalResponse(ctx, respType)
 }
 
 var _ Poller = (*LROPoller)(nil)
@@ -210,45 +243,57 @@ type lroPoller interface {
 	Done() bool
 	Update(resp *Response) error
 	FinalGetURL(resp *Response) (string, error)
-	PollURL() string
-	Status() string
+	URL() string
+	State() string
+	Succeeded() bool
 }
+
+// ====================================================================================================
 
 // polls on the operation-location header
 type opPoller struct {
-	req     *http.Request
-	pollURL string
-	locURL  string
-	status  string
+	Type      string `json:"type"`
+	ReqMethod string `json:"reqMethod"`
+	ReqURL    string `json:"reqURL"`
+	PollURL   string `json:"pollURL"`
+	LocURL    string `json:"locURL"`
+	Status    string `json:"status"`
 }
 
-func (p *opPoller) PollURL() string {
-	return p.pollURL
+func newOpPoller(pollerType, pollingURL, locationURL string, initialResponse *Response) *opPoller {
+	return &opPoller{
+		Type:      fmt.Sprintf("%s;opPoller", pollerType),
+		ReqMethod: initialResponse.Request.Method,
+		ReqURL:    initialResponse.Request.URL.String(),
+		PollURL:   pollingURL,
+		LocURL:    locationURL,
+		Status:    "InProgress",
+	}
+}
+
+func (p *opPoller) URL() string {
+	return p.PollURL
 }
 
 func (p *opPoller) Done() bool {
-	return strings.EqualFold(p.status, "succeeded") ||
-		strings.EqualFold(p.status, "failed") ||
-		strings.EqualFold(p.status, "cancelled")
+	return strings.EqualFold(p.Status, "succeeded") ||
+		strings.EqualFold(p.Status, "failed") ||
+		strings.EqualFold(p.Status, "cancelled")
+}
+
+func (p *opPoller) Succeeded() bool {
+	return strings.EqualFold(p.Status, "succeeded")
 }
 
 func (p *opPoller) Update(resp *Response) error {
-	// read the response body
-	body, err := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
+	status, err := extractJSONValue(resp, "status")
 	if err != nil {
 		return err
 	}
-	// put the body back so it's available to our callers
-	resp.Body = ioutil.NopCloser(bytes.NewReader(body))
-	status, err := extractJSONValue(resp.Body, "status")
-	if err != nil {
-		return err
-	}
-	p.status = status
+	p.Status = status
 	// if the endpoint returned an operation-location header, update cached value
 	if opLoc := resp.Header.Get(headerOperationLocation); opLoc != "" {
-		p.pollURL = opLoc
+		p.PollURL = opLoc
 	}
 	return nil
 }
@@ -257,47 +302,63 @@ func (p *opPoller) FinalGetURL(resp *Response) (string, error) {
 	if !p.Done() {
 		return "", errors.New("cannot return a final response from a poller in a non-terminal state")
 	}
-	resLoc, err := extractJSONValue(resp.Body, "resourceLocation")
+	resLoc, err := extractJSONValue(resp, "resourceLocation")
 	if err != nil {
 		return "", err
 	}
 	if resLoc != "" {
 		return resLoc, nil
 	}
-	if p.req.Method == http.MethodPatch || p.req.Method == http.MethodPut {
-		return p.req.URL.String(), nil
+	if p.ReqMethod == http.MethodPatch || p.ReqMethod == http.MethodPut {
+		return p.ReqURL, nil
 	}
-	if p.req.Method == http.MethodPost && p.locURL != "" {
-		return p.locURL, nil
+	if p.ReqMethod == http.MethodPost && p.LocURL != "" {
+		return p.LocURL, nil
 	}
 	return "", nil
 }
 
-func (p *opPoller) Status() string {
-	return p.status
+func (p *opPoller) State() string {
+	return p.Status
 }
+
+// ====================================================================================================
 
 // polls on the location header
 type locPoller struct {
-	pollURL string
-	status  int
+	Type    string `json:"type"`
+	PollURL string `json:"pollURL"`
+	Status  int    `json:"status"`
 }
 
-func (p *locPoller) PollURL() string {
-	return p.pollURL
+func newLocPoller(pollerType, pollingURL string, initialStatus int) *locPoller {
+	return &locPoller{
+		Type:    fmt.Sprintf("%s;locPoller", pollerType),
+		PollURL: pollingURL,
+		Status:  initialStatus,
+	}
+}
+
+func (p *locPoller) URL() string {
+	return p.PollURL
 }
 
 func (p *locPoller) Done() bool {
 	// a 202 means the operation is still in progress
-	return p.status != http.StatusAccepted
+	return p.Status != http.StatusAccepted
+}
+
+func (p *locPoller) Succeeded() bool {
+	// any 2xx status code indicates success
+	return p.Status >= 200 && p.Status < 300
 }
 
 func (p *locPoller) Update(resp *Response) error {
 	// if the endpoint returned a location header, update cached value
 	if loc := resp.Header.Get(headerLocation); loc != "" {
-		p.pollURL = loc
+		p.PollURL = loc
 	}
-	p.status = resp.StatusCode
+	p.Status = resp.StatusCode
 	return nil
 }
 
@@ -305,18 +366,24 @@ func (*locPoller) FinalGetURL(*Response) (string, error) {
 	return "", nil
 }
 
-func (p *locPoller) Status() string {
-	return strconv.Itoa(p.status)
+func (p *locPoller) State() string {
+	return strconv.Itoa(p.Status)
 }
+
+// ====================================================================================================
 
 // used if the endpoint didn't return any polling headers (synchronous completion)
 type nopPoller struct{}
 
-func (*nopPoller) PollURL() string {
+func (*nopPoller) URL() string {
 	return ""
 }
 
 func (*nopPoller) Done() bool {
+	return true
+}
+
+func (*nopPoller) Succeeded() bool {
 	return true
 }
 
@@ -328,15 +395,23 @@ func (*nopPoller) FinalGetURL(*Response) (string, error) {
 	return "", nil
 }
 
-func (*nopPoller) Status() string {
+func (*nopPoller) State() string {
 	return "succeeded"
 }
 
-func extractJSONValue(r io.Reader, val string) (string, error) {
-	body, err := ioutil.ReadAll(r)
+// returns true if the LRO response contains a valid HTTP status code
+func lroStatusCodeValid(resp *Response) bool {
+	return resp.HasStatusCode(http.StatusOK, http.StatusAccepted, http.StatusCreated, http.StatusNoContent)
+}
+
+// extracs a JSON value from the provided reader
+func extractJSONValue(resp *Response, val string) (string, error) {
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
+	// put the body back so it's available to our callers
+	resp.Body = ioutil.NopCloser(bytes.NewReader(body))
 	// unmarshall the body to get the value
 	var jsonBody map[string]interface{}
 	if err = json.Unmarshal(body, &jsonBody); err != nil {

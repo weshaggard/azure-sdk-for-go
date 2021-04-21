@@ -1,0 +1,439 @@
+// +build go1.13
+
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+package azcore
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"net/url"
+	"testing"
+	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/internal/mock"
+)
+
+type pollerError struct {
+	Err string `json:"error"`
+}
+
+func (p pollerError) Error() string {
+	return p.Err
+}
+
+func errUnmarshall(resp *Response) error {
+	var pe pollerError
+	if err := resp.UnmarshalAsJSON(&pe); err != nil {
+		panic(err)
+	}
+	return pe
+}
+
+type widget struct {
+	Size int `json:"size"`
+}
+
+func TestNewLROPollerFail(t *testing.T) {
+	p, err := NewLROPoller("fake.poller", &Response{
+		&http.Response{
+			StatusCode: http.StatusBadRequest,
+		},
+	}, NewPipeline(nil), errUnmarshall)
+	if err == nil {
+		t.Fatal("unexpected nil error")
+	}
+	if p != nil {
+		t.Fatal("expected nil poller")
+	}
+}
+
+func TestNewLROPollerFromResumeTokenFail(t *testing.T) {
+	tests := []struct {
+		name  string
+		token string
+	}{
+		{"invalid", "invalid"},
+		{"empty", "{}"},
+		{"wrong type", `{"type": 1}`},
+		{"missing type", `{"type": "fake.poller"}`},
+		{"mismatched type", `{"type": "faker.poller;opPoller"}`},
+		{"malformed type", `{"type": "fake.poller;dummy"}`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p, err := NewLROPollerFromResumeToken("fake.poller", test.token, NewPipeline(nil), errUnmarshall)
+			if err == nil {
+				t.Fatal("unexpected nil error")
+			}
+			if p != nil {
+				t.Fatal("expected nil poller")
+			}
+		})
+	}
+}
+
+func TestOpPollerSimple(t *testing.T) {
+	srv, close := mock.NewServer()
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted), mock.WithBody([]byte(`{ "status": "InProgress"}`)))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted), mock.WithBody([]byte(`{ "status": "InProgress"}`)))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusOK), mock.WithBody([]byte(`{ "status": "Succeeded"}`)))
+	defer close()
+
+	reqURL, err := url.Parse(srv.URL())
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstResp := &Response{
+		&http.Response{
+			StatusCode: http.StatusAccepted,
+			Header: http.Header{
+				"Operation-Location": []string{srv.URL()},
+				"Retry-After":        []string{"1"},
+			},
+			Request: &http.Request{
+				Method: http.MethodPut,
+				URL:    reqURL,
+			},
+		},
+	}
+	pl := NewPipeline(srv)
+	lro, err := NewLROPoller("fake.poller", firstResp, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := lro.PollUntilDone(context.Background(), 5*time.Millisecond, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status code %d", resp.StatusCode)
+	}
+}
+
+func TestOpPollerWithWidget(t *testing.T) {
+	srv, close := mock.NewServer()
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted), mock.WithBody([]byte(`{"status": "InProgress"}`)))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted), mock.WithBody([]byte(`{"status": "InProgress"}`)))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusOK), mock.WithBody([]byte(`{"status": "Succeeded"}`)))
+	defer close()
+
+	reqURL, err := url.Parse(srv.URL())
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstResp := &Response{
+		&http.Response{
+			StatusCode: http.StatusAccepted,
+			Header: http.Header{
+				"Operation-Location": []string{srv.URL()},
+				"Retry-After":        []string{"1"},
+			},
+			Request: &http.Request{
+				Method: http.MethodPut,
+				URL:    reqURL,
+			},
+		},
+	}
+	pl := NewPipeline(srv)
+	lro, err := NewLROPoller("fake.poller", firstResp, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var w widget
+	resp, err := lro.PollUntilDone(context.Background(), 5*time.Millisecond, &w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status code %d", resp.StatusCode)
+	}
+	if w.Size != 2 {
+		t.Fatalf("unexpected widget size %d", w.Size)
+	}
+}
+
+func TestOpPollerWithResumeToken(t *testing.T) {
+	srv, close := mock.NewServer()
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted), mock.WithBody([]byte(`{ "status": "InProgress"}`)))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted), mock.WithBody([]byte(`{ "status": "InProgress"}`)))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusOK), mock.WithBody([]byte(`{ "status": "Succeeded"}`)))
+	defer close()
+
+	reqURL, err := url.Parse(srv.URL())
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstResp := &Response{
+		&http.Response{
+			StatusCode: http.StatusAccepted,
+			Header: http.Header{
+				"Operation-Location": []string{srv.URL()},
+				"Retry-After":        []string{"1"},
+			},
+			Request: &http.Request{
+				Method: http.MethodPut,
+				URL:    reqURL,
+			},
+		},
+	}
+	pl := NewPipeline(srv)
+	lro, err := NewLROPoller("fake.poller", firstResp, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := lro.Poll(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("unexpected status code %d", resp.StatusCode)
+	}
+	tk, err := lro.ResumeToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	lro, err = NewLROPollerFromResumeToken("fake.poller", tk, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err = lro.PollUntilDone(context.Background(), 5*time.Millisecond, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status code %d", resp.StatusCode)
+	}
+}
+
+func TestLocPollerSimple(t *testing.T) {
+	srv, close := mock.NewServer()
+	defer close()
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusOK))
+
+	firstResp := &Response{
+		&http.Response{
+			StatusCode: http.StatusAccepted,
+			Header: http.Header{
+				"Location":    []string{srv.URL()},
+				"Retry-After": []string{"1"},
+			},
+		},
+	}
+	pl := NewPipeline(srv)
+	lro, err := NewLROPoller("fake.poller", firstResp, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := lro.PollUntilDone(context.Background(), 5*time.Millisecond, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status code %d", resp.StatusCode)
+	}
+}
+
+func TestLocPollerWithWidget(t *testing.T) {
+	srv, close := mock.NewServer()
+	defer close()
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusOK), mock.WithBody([]byte(`{"size": 3}`)))
+
+	firstResp := &Response{
+		&http.Response{
+			StatusCode: http.StatusAccepted,
+			Header: http.Header{
+				"Location":    []string{srv.URL()},
+				"Retry-After": []string{"1"},
+			},
+		},
+	}
+	pl := NewPipeline(srv)
+	lro, err := NewLROPoller("fake.poller", firstResp, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var w widget
+	resp, err := lro.PollUntilDone(context.Background(), 5*time.Millisecond, &w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status code %d", resp.StatusCode)
+	}
+	if w.Size != 3 {
+		t.Fatalf("unexpected widget size %d", w.Size)
+	}
+}
+
+func TestLocPollerCancelled(t *testing.T) {
+	srv, close := mock.NewServer()
+	defer close()
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusConflict), mock.WithBody([]byte(`{"error": "cancelled"}`)))
+
+	firstResp := &Response{
+		&http.Response{
+			StatusCode: http.StatusAccepted,
+			Header: http.Header{
+				"Location":    []string{srv.URL()},
+				"Retry-After": []string{"1"},
+			},
+		},
+	}
+	pl := NewPipeline(srv)
+	lro, err := NewLROPoller("fake.poller", firstResp, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var w widget
+	resp, err := lro.PollUntilDone(context.Background(), 5*time.Millisecond, &w)
+	if err == nil {
+		t.Fatal("unexpected nil error")
+	}
+	if _, ok := err.(pollerError); !ok {
+		t.Fatal("expected pollerError")
+	}
+	if resp != nil {
+		t.Fatal("expected nil response")
+	}
+	if w.Size != 0 {
+		t.Fatalf("unexpected widget size %d", w.Size)
+	}
+}
+
+func TestLocPollerWithError(t *testing.T) {
+	srv, close := mock.NewServer()
+	defer close()
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted))
+	srv.AppendError(errors.New("oops"))
+
+	firstResp := &Response{
+		&http.Response{
+			StatusCode: http.StatusAccepted,
+			Header: http.Header{
+				"Location":    []string{srv.URL()},
+				"Retry-After": []string{"1"},
+			},
+		},
+	}
+	pl := NewPipeline(srv)
+	lro, err := NewLROPoller("fake.poller", firstResp, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var w widget
+	resp, err := lro.PollUntilDone(context.Background(), 5*time.Millisecond, &w)
+	if err == nil {
+		t.Fatal("unexpected nil error")
+	}
+	if e := err.Error(); e != "oops" {
+		t.Fatalf("expected error %s", e)
+	}
+	if resp != nil {
+		t.Fatal("expected nil response")
+	}
+	if w.Size != 0 {
+		t.Fatalf("unexpected widget size %d", w.Size)
+	}
+}
+
+func TestLocPollerWithResumeToken(t *testing.T) {
+	srv, close := mock.NewServer()
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusOK))
+	defer close()
+
+	firstResp := &Response{
+		&http.Response{
+			StatusCode: http.StatusAccepted,
+			Header: http.Header{
+				"Location":    []string{srv.URL()},
+				"Retry-After": []string{"1"},
+			},
+		},
+	}
+	pl := NewPipeline(srv)
+	lro, err := NewLROPoller("fake.poller", firstResp, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := lro.Poll(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("unexpected status code %d", resp.StatusCode)
+	}
+	tk, err := lro.ResumeToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	lro, err = NewLROPollerFromResumeToken("fake.poller", tk, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err = lro.PollUntilDone(context.Background(), 5*time.Millisecond, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status code %d", resp.StatusCode)
+	}
+}
+
+func TestNopPoller(t *testing.T) {
+	firstResp := &Response{
+		&http.Response{
+			StatusCode: http.StatusOK,
+		},
+	}
+	pl := NewPipeline(nil)
+	lro, err := NewLROPoller("fake.poller", firstResp, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := lro.lro.(*nopPoller); !ok {
+		t.Fatalf("unexpected poller type %T", lro.lro)
+	}
+	if !lro.Done() {
+		t.Fatal("expected Done() for nopPoller")
+	}
+	resp, err := lro.FinalResponse(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp != firstResp.Response {
+		t.Fatal("unexpected response")
+	}
+	resp, err = lro.Poll(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp != firstResp.Response {
+		t.Fatal("unexpected response")
+	}
+	resp, err = lro.PollUntilDone(context.Background(), 5*time.Millisecond, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp != firstResp.Response {
+		t.Fatal("unexpected response")
+	}
+	tk, err := lro.ResumeToken()
+	if err == nil {
+		t.Fatal("unexpected nil error")
+	}
+	if tk != "" {
+		t.Fatal("expected empty token")
+	}
+}

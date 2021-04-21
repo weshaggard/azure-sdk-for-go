@@ -53,7 +53,7 @@ func NewLROPoller(pollerType string, resp *Response, pl Pipeline, eu ErrorUnmars
 			resp: resp,
 		}, nil
 	}
-	return &LROPoller{lro: &nopPoller{}}, nil
+	return &LROPoller{lro: &nopPoller{}, resp: resp}, nil
 }
 
 // NewLROPollerFromResumeToken creates an LROPoller from a resume token string.
@@ -65,7 +65,14 @@ func NewLROPollerFromResumeToken(pollerType string, token string, pl Pipeline, e
 	if err != nil {
 		return nil, err
 	}
-	tt := obj["type"].(string)
+	t, ok := obj["type"]
+	if !ok {
+		return nil, errors.New("missing type field")
+	}
+	tt, ok := t.(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid type format %T", t)
+	}
 	// the type is encoded as "pollerType;lroPoller"
 	sem := strings.LastIndex(tt, ";")
 	if sem < 0 {
@@ -136,7 +143,8 @@ func (l *LROPoller) Poll(ctx context.Context) (*http.Response, error) {
 	if err = l.lro.Update(resp); err != nil {
 		return nil, err
 	}
-	return resp.Response, nil
+	l.resp = resp
+	return l.resp.Response, nil
 }
 
 // ResumeToken returns a token string that can be used to resume a poller that has not yet reached a terminal state.
@@ -290,6 +298,9 @@ func (p *opPoller) Update(resp *Response) error {
 	if err != nil {
 		return err
 	}
+	if status == "" {
+		return errors.New("no status found in body")
+	}
 	p.Status = status
 	// if the endpoint returned an operation-location header, update cached value
 	if opLoc := resp.Header.Get(headerOperationLocation); opLoc != "" {
@@ -406,6 +417,9 @@ func lroStatusCodeValid(resp *Response) bool {
 
 // extracs a JSON value from the provided reader
 func extractJSONValue(resp *Response, val string) (string, error) {
+	if resp.ContentLength == 0 {
+		return "", errors.New("the response does not contain a body")
+	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
@@ -417,16 +431,14 @@ func extractJSONValue(resp *Response, val string) (string, error) {
 	if err = json.Unmarshal(body, &jsonBody); err != nil {
 		return "", err
 	}
-	if len(jsonBody) == 0 {
-		return "", errors.New("the response does not contain a body")
-	}
 	v, ok := jsonBody[val]
 	if !ok {
-		return "", fmt.Errorf("the response body does not contain field %s", v)
+		// it might be ok if the field doesn't exist, the caller must make that determination
+		return "", nil
 	}
 	vv, ok := v.(string)
 	if !ok {
-		return "", fmt.Errorf("the status value %v was not in string format", vv)
+		return "", fmt.Errorf("the %s value %v was not in string format", val, v)
 	}
 	return vv, nil
 }

@@ -53,14 +53,26 @@ func (client *TriggerClient) BeginCreateOrUpdateTrigger(ctx context.Context, tri
 
 // ResumeCreateOrUpdateTrigger creates a new TriggerResourcePoller from the specified resume token.
 // token - The value must come from a previous call to TriggerResourcePoller.ResumeToken().
-func (client *TriggerClient) ResumeCreateOrUpdateTrigger(token string) (TriggerResourcePoller, error) {
+func (client *TriggerClient) ResumeCreateOrUpdateTrigger(ctx context.Context, token string) (TriggerResourcePollerResponse, error) {
 	pt, err := azcore.NewLROPollerFromResumeToken("TriggerClient.CreateOrUpdateTrigger", token, client.con.Pipeline(), client.createOrUpdateTriggerHandleError)
 	if err != nil {
-		return nil, err
+		return TriggerResourcePollerResponse{}, err
 	}
-	return &triggerResourcePoller{
+	poller := &triggerResourcePoller{
 		pt: pt,
-	}, nil
+	}
+	resp, err := poller.Poll(ctx)
+	if err != nil {
+		return TriggerResourcePollerResponse{}, err
+	}
+	result := TriggerResourcePollerResponse{
+		RawResponse: resp,
+	}
+	result.Poller = poller
+	result.PollUntilDone = func(ctx context.Context, frequency time.Duration) (TriggerResourceResponse, error) {
+		return poller.pollUntilDone(ctx, frequency)
+	}
+	return result, nil
 }
 
 // CreateOrUpdateTrigger - Creates or updates a trigger.
@@ -144,14 +156,26 @@ func (client *TriggerClient) BeginDeleteTrigger(ctx context.Context, triggerName
 
 // ResumeDeleteTrigger creates a new HTTPPoller from the specified resume token.
 // token - The value must come from a previous call to HTTPPoller.ResumeToken().
-func (client *TriggerClient) ResumeDeleteTrigger(token string) (HTTPPoller, error) {
+func (client *TriggerClient) ResumeDeleteTrigger(ctx context.Context, token string) (HTTPPollerResponse, error) {
 	pt, err := azcore.NewLROPollerFromResumeToken("TriggerClient.DeleteTrigger", token, client.con.Pipeline(), client.deleteTriggerHandleError)
 	if err != nil {
-		return nil, err
+		return HTTPPollerResponse{}, err
 	}
-	return &httpPoller{
+	poller := &httpPoller{
 		pt: pt,
-	}, nil
+	}
+	resp, err := poller.Poll(ctx)
+	if err != nil {
+		return HTTPPollerResponse{}, err
+	}
+	result := HTTPPollerResponse{
+		RawResponse: resp,
+	}
+	result.Poller = poller
+	result.PollUntilDone = func(ctx context.Context, frequency time.Duration) (*http.Response, error) {
+		return poller.pollUntilDone(ctx, frequency)
+	}
+	return result, nil
 }
 
 // DeleteTrigger - Deletes a trigger.
@@ -381,14 +405,26 @@ func (client *TriggerClient) BeginStartTrigger(ctx context.Context, triggerName 
 
 // ResumeStartTrigger creates a new HTTPPoller from the specified resume token.
 // token - The value must come from a previous call to HTTPPoller.ResumeToken().
-func (client *TriggerClient) ResumeStartTrigger(token string) (HTTPPoller, error) {
+func (client *TriggerClient) ResumeStartTrigger(ctx context.Context, token string) (HTTPPollerResponse, error) {
 	pt, err := azcore.NewLROPollerFromResumeToken("TriggerClient.StartTrigger", token, client.con.Pipeline(), client.startTriggerHandleError)
 	if err != nil {
-		return nil, err
+		return HTTPPollerResponse{}, err
 	}
-	return &httpPoller{
+	poller := &httpPoller{
 		pt: pt,
-	}, nil
+	}
+	resp, err := poller.Poll(ctx)
+	if err != nil {
+		return HTTPPollerResponse{}, err
+	}
+	result := HTTPPollerResponse{
+		RawResponse: resp,
+	}
+	result.Poller = poller
+	result.PollUntilDone = func(ctx context.Context, frequency time.Duration) (*http.Response, error) {
+		return poller.pollUntilDone(ctx, frequency)
+	}
+	return result, nil
 }
 
 // StartTrigger - Starts a trigger.
@@ -460,14 +496,26 @@ func (client *TriggerClient) BeginStopTrigger(ctx context.Context, triggerName s
 
 // ResumeStopTrigger creates a new HTTPPoller from the specified resume token.
 // token - The value must come from a previous call to HTTPPoller.ResumeToken().
-func (client *TriggerClient) ResumeStopTrigger(token string) (HTTPPoller, error) {
+func (client *TriggerClient) ResumeStopTrigger(ctx context.Context, token string) (HTTPPollerResponse, error) {
 	pt, err := azcore.NewLROPollerFromResumeToken("TriggerClient.StopTrigger", token, client.con.Pipeline(), client.stopTriggerHandleError)
 	if err != nil {
-		return nil, err
+		return HTTPPollerResponse{}, err
 	}
-	return &httpPoller{
+	poller := &httpPoller{
 		pt: pt,
-	}, nil
+	}
+	resp, err := poller.Poll(ctx)
+	if err != nil {
+		return HTTPPollerResponse{}, err
+	}
+	result := HTTPPollerResponse{
+		RawResponse: resp,
+	}
+	result.Poller = poller
+	result.PollUntilDone = func(ctx context.Context, frequency time.Duration) (*http.Response, error) {
+		return poller.pollUntilDone(ctx, frequency)
+	}
+	return result, nil
 }
 
 // StopTrigger - Stops a trigger.
@@ -539,14 +587,26 @@ func (client *TriggerClient) BeginSubscribeTriggerToEvents(ctx context.Context, 
 
 // ResumeSubscribeTriggerToEvents creates a new TriggerSubscriptionOperationStatusPoller from the specified resume token.
 // token - The value must come from a previous call to TriggerSubscriptionOperationStatusPoller.ResumeToken().
-func (client *TriggerClient) ResumeSubscribeTriggerToEvents(token string) (TriggerSubscriptionOperationStatusPoller, error) {
+func (client *TriggerClient) ResumeSubscribeTriggerToEvents(ctx context.Context, token string) (TriggerSubscriptionOperationStatusPollerResponse, error) {
 	pt, err := azcore.NewLROPollerFromResumeToken("TriggerClient.SubscribeTriggerToEvents", token, client.con.Pipeline(), client.subscribeTriggerToEventsHandleError)
 	if err != nil {
-		return nil, err
+		return TriggerSubscriptionOperationStatusPollerResponse{}, err
 	}
-	return &triggerSubscriptionOperationStatusPoller{
+	poller := &triggerSubscriptionOperationStatusPoller{
 		pt: pt,
-	}, nil
+	}
+	resp, err := poller.Poll(ctx)
+	if err != nil {
+		return TriggerSubscriptionOperationStatusPollerResponse{}, err
+	}
+	result := TriggerSubscriptionOperationStatusPollerResponse{
+		RawResponse: resp,
+	}
+	result.Poller = poller
+	result.PollUntilDone = func(ctx context.Context, frequency time.Duration) (TriggerSubscriptionOperationStatusResponse, error) {
+		return poller.pollUntilDone(ctx, frequency)
+	}
+	return result, nil
 }
 
 // SubscribeTriggerToEvents - Subscribe event trigger to events.
@@ -627,14 +687,26 @@ func (client *TriggerClient) BeginUnsubscribeTriggerFromEvents(ctx context.Conte
 
 // ResumeUnsubscribeTriggerFromEvents creates a new TriggerSubscriptionOperationStatusPoller from the specified resume token.
 // token - The value must come from a previous call to TriggerSubscriptionOperationStatusPoller.ResumeToken().
-func (client *TriggerClient) ResumeUnsubscribeTriggerFromEvents(token string) (TriggerSubscriptionOperationStatusPoller, error) {
+func (client *TriggerClient) ResumeUnsubscribeTriggerFromEvents(ctx context.Context, token string) (TriggerSubscriptionOperationStatusPollerResponse, error) {
 	pt, err := azcore.NewLROPollerFromResumeToken("TriggerClient.UnsubscribeTriggerFromEvents", token, client.con.Pipeline(), client.unsubscribeTriggerFromEventsHandleError)
 	if err != nil {
-		return nil, err
+		return TriggerSubscriptionOperationStatusPollerResponse{}, err
 	}
-	return &triggerSubscriptionOperationStatusPoller{
+	poller := &triggerSubscriptionOperationStatusPoller{
 		pt: pt,
-	}, nil
+	}
+	resp, err := poller.Poll(ctx)
+	if err != nil {
+		return TriggerSubscriptionOperationStatusPollerResponse{}, err
+	}
+	result := TriggerSubscriptionOperationStatusPollerResponse{
+		RawResponse: resp,
+	}
+	result.Poller = poller
+	result.PollUntilDone = func(ctx context.Context, frequency time.Duration) (TriggerSubscriptionOperationStatusResponse, error) {
+		return poller.pollUntilDone(ctx, frequency)
+	}
+	return result, nil
 }
 
 // UnsubscribeTriggerFromEvents - Unsubscribe event trigger from events.

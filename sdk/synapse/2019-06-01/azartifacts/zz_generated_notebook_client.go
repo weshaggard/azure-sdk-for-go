@@ -53,14 +53,26 @@ func (client *NotebookClient) BeginCreateOrUpdateNotebook(ctx context.Context, n
 
 // ResumeCreateOrUpdateNotebook creates a new NotebookResourcePoller from the specified resume token.
 // token - The value must come from a previous call to NotebookResourcePoller.ResumeToken().
-func (client *NotebookClient) ResumeCreateOrUpdateNotebook(token string) (NotebookResourcePoller, error) {
+func (client *NotebookClient) ResumeCreateOrUpdateNotebook(ctx context.Context, token string) (NotebookResourcePollerResponse, error) {
 	pt, err := azcore.NewLROPollerFromResumeToken("NotebookClient.CreateOrUpdateNotebook", token, client.con.Pipeline(), client.createOrUpdateNotebookHandleError)
 	if err != nil {
-		return nil, err
+		return NotebookResourcePollerResponse{}, err
 	}
-	return &notebookResourcePoller{
+	poller := &notebookResourcePoller{
 		pt: pt,
-	}, nil
+	}
+	resp, err := poller.Poll(ctx)
+	if err != nil {
+		return NotebookResourcePollerResponse{}, err
+	}
+	result := NotebookResourcePollerResponse{
+		RawResponse: resp,
+	}
+	result.Poller = poller
+	result.PollUntilDone = func(ctx context.Context, frequency time.Duration) (NotebookResourceResponse, error) {
+		return poller.pollUntilDone(ctx, frequency)
+	}
+	return result, nil
 }
 
 // CreateOrUpdateNotebook - Creates or updates a Note Book.
@@ -144,14 +156,26 @@ func (client *NotebookClient) BeginDeleteNotebook(ctx context.Context, notebookN
 
 // ResumeDeleteNotebook creates a new HTTPPoller from the specified resume token.
 // token - The value must come from a previous call to HTTPPoller.ResumeToken().
-func (client *NotebookClient) ResumeDeleteNotebook(token string) (HTTPPoller, error) {
+func (client *NotebookClient) ResumeDeleteNotebook(ctx context.Context, token string) (HTTPPollerResponse, error) {
 	pt, err := azcore.NewLROPollerFromResumeToken("NotebookClient.DeleteNotebook", token, client.con.Pipeline(), client.deleteNotebookHandleError)
 	if err != nil {
-		return nil, err
+		return HTTPPollerResponse{}, err
 	}
-	return &httpPoller{
+	poller := &httpPoller{
 		pt: pt,
-	}, nil
+	}
+	resp, err := poller.Poll(ctx)
+	if err != nil {
+		return HTTPPollerResponse{}, err
+	}
+	result := HTTPPollerResponse{
+		RawResponse: resp,
+	}
+	result.Poller = poller
+	result.PollUntilDone = func(ctx context.Context, frequency time.Duration) (*http.Response, error) {
+		return poller.pollUntilDone(ctx, frequency)
+	}
+	return result, nil
 }
 
 // DeleteNotebook - Deletes a Note book.
@@ -377,14 +401,26 @@ func (client *NotebookClient) BeginRenameNotebook(ctx context.Context, notebookN
 
 // ResumeRenameNotebook creates a new HTTPPoller from the specified resume token.
 // token - The value must come from a previous call to HTTPPoller.ResumeToken().
-func (client *NotebookClient) ResumeRenameNotebook(token string) (HTTPPoller, error) {
+func (client *NotebookClient) ResumeRenameNotebook(ctx context.Context, token string) (HTTPPollerResponse, error) {
 	pt, err := azcore.NewLROPollerFromResumeToken("NotebookClient.RenameNotebook", token, client.con.Pipeline(), client.renameNotebookHandleError)
 	if err != nil {
-		return nil, err
+		return HTTPPollerResponse{}, err
 	}
-	return &httpPoller{
+	poller := &httpPoller{
 		pt: pt,
-	}, nil
+	}
+	resp, err := poller.Poll(ctx)
+	if err != nil {
+		return HTTPPollerResponse{}, err
+	}
+	result := HTTPPollerResponse{
+		RawResponse: resp,
+	}
+	result.Poller = poller
+	result.PollUntilDone = func(ctx context.Context, frequency time.Duration) (*http.Response, error) {
+		return poller.pollUntilDone(ctx, frequency)
+	}
+	return result, nil
 }
 
 // RenameNotebook - Renames a notebook.

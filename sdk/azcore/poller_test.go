@@ -158,12 +158,12 @@ func TestOpPollerWithWidgetPUT(t *testing.T) {
 	}
 }
 
-func TestOpPollerWithWidgetPOST(t *testing.T) {
+func TestOpPollerWithWidgetPOSTLocation(t *testing.T) {
 	srv, close := mock.NewServer()
 	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted), mock.WithBody([]byte(`{"status": "InProgress"}`)))
 	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted), mock.WithBody([]byte(`{"status": "InProgress"}`)))
 	srv.AppendResponse(mock.WithStatusCode(http.StatusOK), mock.WithBody([]byte(`{"status": "Succeeded"}`)))
-	// POST state that a final GET will happen from the URL provided in the Location header
+	// POST state that a final GET will happen from the URL provided in the Location header if available
 	srv.AppendResponse(mock.WithStatusCode(http.StatusOK), mock.WithBody([]byte(`{"size": 2}`)))
 	defer close()
 
@@ -177,6 +177,49 @@ func TestOpPollerWithWidgetPOST(t *testing.T) {
 			Header: http.Header{
 				"Operation-Location": []string{srv.URL()},
 				"Location":           []string{srv.URL()},
+				"Retry-After":        []string{"1"},
+			},
+			Request: &http.Request{
+				Method: http.MethodPost,
+				URL:    reqURL,
+			},
+		},
+	}
+	pl := NewPipeline(srv)
+	lro, err := NewLROPoller("fake.poller", firstResp, pl, errUnmarshall)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var w widget
+	resp, err := lro.PollUntilDone(context.Background(), 5*time.Millisecond, &w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected status code %d", resp.StatusCode)
+	}
+	if w.Size != 2 {
+		t.Fatalf("unexpected widget size %d", w.Size)
+	}
+}
+
+func TestOpPollerWithWidgetPOST(t *testing.T) {
+	srv, close := mock.NewServer()
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted), mock.WithBody([]byte(`{"status": "InProgress"}`)))
+	srv.AppendResponse(mock.WithStatusCode(http.StatusAccepted), mock.WithBody([]byte(`{"status": "InProgress"}`)))
+	// POST with no location header means the success response returns the model
+	srv.AppendResponse(mock.WithStatusCode(http.StatusOK), mock.WithBody([]byte(`{"status": "Succeeded", "size": 2}`)))
+	defer close()
+
+	reqURL, err := url.Parse(srv.URL())
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstResp := &Response{
+		&http.Response{
+			StatusCode: http.StatusAccepted,
+			Header: http.Header{
+				"Operation-Location": []string{srv.URL()},
 				"Retry-After":        []string{"1"},
 			},
 			Request: &http.Request{

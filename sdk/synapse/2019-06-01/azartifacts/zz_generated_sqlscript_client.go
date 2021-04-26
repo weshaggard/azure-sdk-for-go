@@ -126,7 +126,7 @@ func (client *SQLScriptClient) createOrUpdateSQLScriptHandleResponse(resp *azcor
 func (client *SQLScriptClient) createOrUpdateSQLScriptHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -217,7 +217,7 @@ func (client *SQLScriptClient) deleteSQLScriptCreateRequest(ctx context.Context,
 func (client *SQLScriptClient) deleteSQLScriptHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -273,7 +273,7 @@ func (client *SQLScriptClient) getSQLScriptHandleResponse(resp *azcore.Response)
 func (client *SQLScriptClient) getSQLScriptHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -322,7 +322,7 @@ func (client *SQLScriptClient) getSQLScriptsByWorkspaceHandleResponse(resp *azco
 func (client *SQLScriptClient) getSQLScriptsByWorkspaceHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -413,7 +413,7 @@ func (client *SQLScriptClient) renameSQLScriptCreateRequest(ctx context.Context,
 func (client *SQLScriptClient) renameSQLScriptHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }

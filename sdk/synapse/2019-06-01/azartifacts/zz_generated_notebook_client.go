@@ -126,7 +126,7 @@ func (client *NotebookClient) createOrUpdateNotebookHandleResponse(resp *azcore.
 func (client *NotebookClient) createOrUpdateNotebookHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -217,7 +217,7 @@ func (client *NotebookClient) deleteNotebookCreateRequest(ctx context.Context, n
 func (client *NotebookClient) deleteNotebookHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -273,7 +273,7 @@ func (client *NotebookClient) getNotebookHandleResponse(resp *azcore.Response) (
 func (client *NotebookClient) getNotebookHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -322,7 +322,7 @@ func (client *NotebookClient) getNotebookSummaryByWorkSpaceHandleResponse(resp *
 func (client *NotebookClient) getNotebookSummaryByWorkSpaceHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -371,7 +371,7 @@ func (client *NotebookClient) getNotebooksByWorkspaceHandleResponse(resp *azcore
 func (client *NotebookClient) getNotebooksByWorkspaceHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -462,7 +462,7 @@ func (client *NotebookClient) renameNotebookCreateRequest(ctx context.Context, n
 func (client *NotebookClient) renameNotebookHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }

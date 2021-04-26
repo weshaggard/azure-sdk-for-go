@@ -74,7 +74,7 @@ func (client *LibraryClient) appendCreateRequest(ctx context.Context, libraryNam
 func (client *LibraryClient) appendHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -174,7 +174,7 @@ func (client *LibraryClient) createHandleResponse(resp *azcore.Response) (Librar
 func (client *LibraryClient) createHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -274,7 +274,7 @@ func (client *LibraryClient) deleteHandleResponse(resp *azcore.Response) (Librar
 func (client *LibraryClient) deleteHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -374,7 +374,7 @@ func (client *LibraryClient) flushHandleResponse(resp *azcore.Response) (Library
 func (client *LibraryClient) flushHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -427,7 +427,7 @@ func (client *LibraryClient) getHandleResponse(resp *azcore.Response) (LibraryRe
 func (client *LibraryClient) getHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -492,7 +492,7 @@ func (client *LibraryClient) getOperationResultHandleResponse(resp *azcore.Respo
 func (client *LibraryClient) getOperationResultHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -541,7 +541,7 @@ func (client *LibraryClient) listHandleResponse(resp *azcore.Response) (LibraryL
 func (client *LibraryClient) listHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }

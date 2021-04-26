@@ -126,7 +126,7 @@ func (client *TriggerClient) createOrUpdateTriggerHandleResponse(resp *azcore.Re
 func (client *TriggerClient) createOrUpdateTriggerHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -217,7 +217,7 @@ func (client *TriggerClient) deleteTriggerCreateRequest(ctx context.Context, tri
 func (client *TriggerClient) deleteTriggerHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -270,7 +270,7 @@ func (client *TriggerClient) getEventSubscriptionStatusHandleResponse(resp *azco
 func (client *TriggerClient) getEventSubscriptionStatusHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -326,7 +326,7 @@ func (client *TriggerClient) getTriggerHandleResponse(resp *azcore.Response) (Tr
 func (client *TriggerClient) getTriggerHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -375,7 +375,7 @@ func (client *TriggerClient) getTriggersByWorkspaceHandleResponse(resp *azcore.R
 func (client *TriggerClient) getTriggersByWorkspaceHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -466,7 +466,7 @@ func (client *TriggerClient) startTriggerCreateRequest(ctx context.Context, trig
 func (client *TriggerClient) startTriggerHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -557,7 +557,7 @@ func (client *TriggerClient) stopTriggerCreateRequest(ctx context.Context, trigg
 func (client *TriggerClient) stopTriggerHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -657,7 +657,7 @@ func (client *TriggerClient) subscribeTriggerToEventsHandleResponse(resp *azcore
 func (client *TriggerClient) subscribeTriggerToEventsHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -757,7 +757,7 @@ func (client *TriggerClient) unsubscribeTriggerFromEventsHandleResponse(resp *az
 func (client *TriggerClient) unsubscribeTriggerFromEventsHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }

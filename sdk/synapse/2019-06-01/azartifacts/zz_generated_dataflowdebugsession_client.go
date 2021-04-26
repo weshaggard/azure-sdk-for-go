@@ -69,7 +69,7 @@ func (client *DataFlowDebugSessionClient) addDataFlowHandleResponse(resp *azcore
 func (client *DataFlowDebugSessionClient) addDataFlowHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -165,7 +165,7 @@ func (client *DataFlowDebugSessionClient) createDataFlowDebugSessionHandleRespon
 func (client *DataFlowDebugSessionClient) createDataFlowDebugSessionHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -205,7 +205,7 @@ func (client *DataFlowDebugSessionClient) deleteDataFlowDebugSessionCreateReques
 func (client *DataFlowDebugSessionClient) deleteDataFlowDebugSessionHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -301,7 +301,7 @@ func (client *DataFlowDebugSessionClient) executeCommandHandleResponse(resp *azc
 func (client *DataFlowDebugSessionClient) executeCommandHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -350,7 +350,7 @@ func (client *DataFlowDebugSessionClient) queryDataFlowDebugSessionsByWorkspaceH
 func (client *DataFlowDebugSessionClient) queryDataFlowDebugSessionsByWorkspaceHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }

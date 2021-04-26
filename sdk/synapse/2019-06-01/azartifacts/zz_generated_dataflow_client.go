@@ -126,7 +126,7 @@ func (client *DataFlowClient) createOrUpdateDataFlowHandleResponse(resp *azcore.
 func (client *DataFlowClient) createOrUpdateDataFlowHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -217,7 +217,7 @@ func (client *DataFlowClient) deleteDataFlowCreateRequest(ctx context.Context, d
 func (client *DataFlowClient) deleteDataFlowHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -273,7 +273,7 @@ func (client *DataFlowClient) getDataFlowHandleResponse(resp *azcore.Response) (
 func (client *DataFlowClient) getDataFlowHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -322,7 +322,7 @@ func (client *DataFlowClient) getDataFlowsByWorkspaceHandleResponse(resp *azcore
 func (client *DataFlowClient) getDataFlowsByWorkspaceHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }
@@ -413,7 +413,7 @@ func (client *DataFlowClient) renameDataFlowCreateRequest(ctx context.Context, d
 func (client *DataFlowClient) renameDataFlowHandleError(resp *azcore.Response) error {
 	var err CloudError
 	if err := resp.UnmarshalAsJSON(&err.InnerError); err != nil {
-		return err
+		return azcore.NewResponseError(resp.UnmarshalError(err), resp.Response)
 	}
 	return azcore.NewResponseError(&err, resp.Response)
 }

@@ -265,7 +265,7 @@ func getOptionalEnv(name string, defaultValue string) *string {
 func (r *Recording) matchRequest(req *http.Request, rec cassette.Request) bool {
 	isMatch := compareMethods(req, rec, r.c) &&
 		compareURLs(req, rec, r.c) &&
-		// compareHeaders(req, rec, r.c) &&
+		compareHeaders(req, rec, r.c) &&
 		compareBodies(req, rec, r.c)
 
 	return isMatch

@@ -107,7 +107,10 @@ func (s *recordingSanitizerTests) TestAddUrlSanitizerSanitizes() {
 	target.AddUrlSanitizer(func(url *string) {
 		*url = strings.Replace(*url, secret, SanitizedValue, -1)
 	})
-	target.AddBodysanitizer(func(body *string) {
+	target.AddBodysanitizerReq(func(body *string) {
+		*body = strings.Replace(*body, secret, SanitizedValue, -1)
+	})
+	target.AddBodysanitizerResp(func(body *string) {
 		*body = strings.Replace(*body, secret, SanitizedValue, -1)
 	})
 

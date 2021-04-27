@@ -16,7 +16,8 @@ type RecordingSanitizer struct {
 	recorder          *recorder.Recorder
 	headersToSanitize map[string]*string
 	urlSanitizer      StringSanitizer
-	bodySanitizer     StringSanitizer
+	bodySanitizerReq  StringSanitizer
+	bodySanitizerResp StringSanitizer
 }
 
 type StringSanitizer func(*string)
@@ -28,7 +29,7 @@ var sanitizedValueSlice = []string{SanitizedValue}
 
 func DefaultSanitizer(recorder *recorder.Recorder) *RecordingSanitizer {
 	// The default sanitizer sanitizes the Authorization header
-	s := &RecordingSanitizer{headersToSanitize: map[string]*string{"Authorization": nil}, recorder: recorder, urlSanitizer: DefaultStringSanitizer}
+	s := &RecordingSanitizer{headersToSanitize: map[string]*string{"Authorization": nil}, recorder: recorder, urlSanitizer: DefaultStringSanitizer, bodySanitizerReq: DefaultStringSanitizer, bodySanitizerResp: DefaultStringSanitizer}
 	recorder.AddSaveFilter(s.applySaveFilter)
 
 	return s
@@ -41,9 +42,14 @@ func (s *RecordingSanitizer) AddSanitizedHeaders(headers ...string) {
 	}
 }
 
-// AddBodysanitizer configures the supplied StringSanitizer to sanitize recording request and response bodies
-func (s *RecordingSanitizer) AddBodysanitizer(sanitizer StringSanitizer) {
-	s.bodySanitizer = sanitizer
+// AddBodysanitizerReq configures the supplied StringSanitizer to sanitize recording request body
+func (s *RecordingSanitizer) AddBodysanitizerReq(sanitizer StringSanitizer) {
+	s.bodySanitizerReq = sanitizer
+}
+
+// AddBodysanitizerResp configures the supplied StringSanitizer to sanitize recording response bodies
+func (s *RecordingSanitizer) AddBodysanitizerResp(sanitizer StringSanitizer) {
+	s.bodySanitizerResp = sanitizer
 }
 
 // AddUriSanitizer configures the supplied StringSanitizer to sanitize recording request and response URLs
@@ -59,8 +65,12 @@ func (s *RecordingSanitizer) sanitizeHeaders(header http.Header) {
 	}
 }
 
-func (s *RecordingSanitizer) sanitizeBodies(body *string) {
-	s.bodySanitizer(body)
+func (s *RecordingSanitizer) sanitizeBodiesReq(body *string) {
+	s.bodySanitizerReq(body)
+}
+
+func (s *RecordingSanitizer) sanitizeBodiesResp(body *string) {
+	s.bodySanitizerResp(body)
 }
 
 func (s *RecordingSanitizer) sanitizeURL(url *string) {
@@ -72,10 +82,10 @@ func (s *RecordingSanitizer) applySaveFilter(i *cassette.Interaction) error {
 	s.sanitizeHeaders(i.Response.Headers)
 	s.sanitizeURL(&i.Request.URL)
 	if len(i.Request.Body) > 0 {
-		s.sanitizeBodies(&i.Request.Body)
+		s.sanitizeBodiesReq(&i.Request.Body)
 	}
 	if len(i.Response.Body) > 0 {
-		s.sanitizeBodies(&i.Response.Body)
+		s.sanitizeBodiesResp(&i.Response.Body)
 	}
 	return nil
 }

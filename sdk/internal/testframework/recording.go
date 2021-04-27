@@ -33,7 +33,7 @@ type Recording struct {
 	recorder                 *recorder.Recorder
 	src                      rand.Source
 	now                      *time.Time
-	sanitizer                *RecordingSanitizer
+	Sanitizer                *RecordingSanitizer
 	c                        TestContext
 }
 
@@ -104,7 +104,7 @@ func NewRecording(c TestContext, mode RecordMode) (*Recording, error) {
 	rec.SetMatcher(recording.matchRequest)
 
 	// wire up the sanitizer
-	DefaultSanitizer(rec)
+	recording.Sanitizer = DefaultSanitizer(rec)
 
 	return recording, err
 }
@@ -265,7 +265,7 @@ func getOptionalEnv(name string, defaultValue string) *string {
 func (r *Recording) matchRequest(req *http.Request, rec cassette.Request) bool {
 	isMatch := compareMethods(req, rec, r.c) &&
 		compareURLs(req, rec, r.c) &&
-		compareHeaders(req, rec, r.c) &&
+		// compareHeaders(req, rec, r.c) &&
 		compareBodies(req, rec, r.c)
 
 	return isMatch
